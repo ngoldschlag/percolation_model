@@ -1,76 +1,136 @@
+# -*- coding: cp1252 -*-
 """
 Agent based percolation model of innovation
 Nathan Goldschlag
-December 10, 2013
+June 17, 2013
 Version 1.0
 Written in Python 2.7
 
-This python file executes an agent based percolation model that extends the percolation model in Silverberg and Verspagen 2007. The model incorporates patents which can: 1) provide additional resources to innovators to invest in R&D and 2) block other firms from exploring the technology space. 
+This python file executes an agent based percolation model that extends the percolation model in Silverberg and Verspagen 2007. The model incorporates patents which can: 1) provide additional resources to innovators to invest in R&D and 2) block other firms from exploring the technology space.
 
-ABSTRACT: An agent-based computational percolation model is proposed as a method of understanding the innovation process and the effects of patents in incentivizing and stifling innovative search. Traditional economic models of the innovation process and patenting struggle to capture the interdependencies among different types of technologies and the path dependence of innovative search. This research addresses this gap by proposing a model that directly incorporates path dependence, localized search, uncertainty, and interdependence of technological innovations. The model is capable of replicating several empirical observations including the skewed distribution of innovation value as well as the temporal clustering of radical innovations. Simulation results are used to investigate the balance between the incentivizing effects of monopoly privilege on one hand, and the stifling effects of forcing other firms to ‘invent-around’. The results suggest that patents can improve innovative performance when firms have less monopoly power and the technology space is difficult to navigate. With a simpler technology space, patents can also improve innovative performance if monopoly rents are moderate and monopoly power is weak. However, there are large areas of the parameter space for which innovative performance without patents is significantly higher than with patents, primarily when monopoly power is strong and when the technology space is simple.
+To execute the model submit via console passing the desired simulation test as a parameter, e.g. "python test1a", below is a list of valid simulation test names.
+['test1a', 'test1b', 'test2a', 'test2b', 'test3a', 'test3b', 'test4a', 'test4b', 'typical']
 
-Silverberg, G. and B. Verspagen. 2007. "Self-Organization of R&D Search in Complext Technology Spaces". Journal of Economic Interaction and Coordination, 2:195-210.
+ABSTRACT: A model of the innovation process is proposed as a method of understanding the effects of patents in both promoting and stifling innovative search. Traditional static economic models of the innovation process and patenting struggle to capture the interdependence of different types of technologies and the path dependence of innovative search. This research addresses this gap by proposing an agent-based computational model that directly incorporates path dependence, localized search, uncertainty, and the interdependence of technological innovations. The model is capable of replicating several empirical observations including the skewed distribution of innovation value as well as the temporal clustering of radical innovations.  Simulation results are used to investigate how patent breadth, patent duration, and monopoly power affect the performance of innovative search. The results suggest that patents can improve innovative performance when firms have less monopoly power and the technology space is difficult to navigate. However, when the technology space is less difficult to navigate innovative performance significantly improves without patents. Likewise, when the technology space is simple increased patent strength, breadth, and duration, stifle innovative search. 
 
-CRs:
-    Improve structure of firm data file
 """
 
-## USEFUL LIBRARIES
-import random, os, csv
-import time
-#import sys
-#import gc
+## IMPORT LIBRARIES
+import random
+import time, os, sys
 import numpy as np
 import math
-import scipy as sp
 import matplotlib.pyplot as plt
 import pylab as py 
+import pandas as pd
+#import scipy as sp
+#import gc
 #from images2gif import writeGif # Used for gifs
 #from PIL import Image # Used for gifs
 
 t0 = time.clock()
 
 ## PARAMETERS
+simTest = str(sys.argv[1]) # Simulation test that will be run
+print "Simulation Test Entered", simTest
+numCol = 50 # Number of columns in the initial lattice 
+numRow = 100 # Number of initial rows in the initial lattice
+numFirms = 20 # Number of firms to start
+path = "C:\\Users\\ngold\\Documents\\Python Library\\" # path that plots will be saved to, used to clean up gif plots
+filetime = time.strftime("%Y-%m-%d %H%M_%S")
+
+randomSeed = 123456789 # Seed used to initialize the random number generator
+
 savePlots = False # Whether plots are saved after created
 doGifs = False # Whether to save snapshots used to create percolation gifs
 gifFreq = 20 # Frequency of snapshots for gifs
 saveParams = True # Whether a text file is saved with the parameters from the run
-saveTSDataFiles = False # Whether a file is created to hold time series data
-saveRunDataFiles = True # Whether a file is created to hold run data
-saveInnovDataFiles = True # Whether a file is created to hold innovation sizes
-saveFirmDataFiles = False # Whether a csv is written with firm level data from the model
-numRuns = 120 # Number of times the model is executed
-numSteps = 3000 # Number of steps in each run
-maxHeight = 100 # Maximum height allowed for each run, substitute for numSteps
-numCol = 50 # Number of columns in the lattice
-numRow = 100 # Number of initial rows in the lattice
-numFirms = 20 # Number of firms to start
-r = 2 # Search radius
-probMove = 1 # Probability a firm moves
-piDecayRate = 0.01 # Rate at which profits from an innovation decay
-resistMu = 4 # Mean of resistance for lognormal dist
-resistSigma = 1.5 # Standard deviation of resistance for lognormal dist
-baseRnD = 1 # Fixed portion of the firm's budget
-monopProfit = 1 # Monopoly profits recieved for a patented innovation each step during its patent life and the initial profit for an innovation prior to decay
-path = "C:\\Users\\ngoldschlag\\Documents\\Graduate Classes\\Python Library\\" # path that plots will be saved to, used to clean up gif plots
-doPatent = True # Whether the model uses patents
-probPatent = 0.05 # Probability a firm will create a patent for an innovation
-patentLife = 5 # Number of periods a patent lasts
-patentRadius = 1 # Radius a patent covers
-randomSeed = 123456789 # Seed used to initialize the random number generator
+saveStepData = False # Whether a file is created to hold time series data
+saveRunData = True # Whether a file is created to hold run data
+saveInnovData = False # Whether a file is created to hold innovation sizes
+saveFirmStepData = False # Whether a csv is written with firm level data from the model
 
-runDesc = "Test 1.b" # Description of run to be written to the beginning of the parameter file
 
 ## SIMULATION TESTS
-doSigTest = False # Runs the model across different values for resistSigma 
-doDecayTest = True # Runs the model for different values of piDecayRate
-doMonoPTest = False # Runs the model for different values of monopProfit
-doMuTest = False  # Runs the model for different values of resistMu
+tests = ['test1a', 'test1b', 'test2a', 'test2b', 'test3a', 'test3b', 'test4a', 'test4b', 'typical']
+if simTest not in tests:
+    sys.exit('Incorrect simulation test specified, valid tests include: \n'+str(tests))
+if simTest in ['test1a', 'test1b', 'test2a', 'test2b', 'test3a', 'test3b', 'test4a', 'test4b']:
+    doPatent = True # Whether the model uses patents
+    numRuns = 90 # Number of times the model is executed
+    numSteps = 3000 # Number of steps in each run
+    numCol = 50 # Number of columns in the initial lattice 
+    numRow = 100 # Number of initial rows in the initial lattice
+    numFirms = 20 # Number of firms to start
+    r = 2 # Search radius
+    resistMu = 2 # Mean of resistance for lognormal dist
+    resistSigma = 1.5 # Standard deviation of resistance for lognormal dist
+    baseRnD = 1 # Fixed portion of the firm's budget
+    monopProfit = 1 # Monopoly profits received for a patented innovation each step during its patent life and the initial profit for an innovation prior to decay
+    probPatent = 0.05 # Probability a firm will create a patent for an innovation
+    testpatentLife = [5,200] # Number of periods a patent lasts
+    patentRadius = 1 # Radius a patent covers
+
+    piDecayRate = 0.01 # Rate at which profits from an innovation decay
+    testPiDecay = [0.01, 0.01, 0.01, 0.02, 0.02, 0.02, 0.03, 0.03, 0.03, 0.04, 0.04, 0.04, 0.05, 0.05, 0.05, 0.06, 0.06, 0.06, 0.07, 0.07, 0.07, 0.08, 0.08, 0.08, 0.09, 0.09, 0.09, 0.1, 0.1, 0.1]*3
+
+if simTest=='test1b':
+    resistMu = 4 
+
+if simTest=='test2a':
+    patentRadius = 3
+
+if simTest=='test2b':
+    resistMu = 4 
+    patentRadius = 3
+    
+if simTest=='test3a':
+    piDecayRate = 0.01
+    testResistMu = [2, 2, 2, 2.2, 2.2, 2.2, 2.4, 2.4, 2.4, 2.6, 2.6, 2.6, 2.8, 2.8, 2.8, 3.0, 3.0, 3.0, 3.2, 3.2, 3.2, 3.4, 3.4, 3.4, 3.6, 3.6, 3.6, 3.8, 3.8, 3.8]*3
+
+if simTest=='test3b':
+    piDecayRate = 0.1
+    testResistMu = [2, 2, 2, 2.2, 2.2, 2.2, 2.4, 2.4, 2.4, 2.6, 2.6, 2.6, 2.8, 2.8, 2.8, 3.0, 3.0, 3.0, 3.2, 3.2, 3.2, 3.4, 3.4, 3.4, 3.6, 3.6, 3.6, 3.8, 3.8, 3.8]*3
+
+if simTest=='test4a':
+    numRuns = 180
+    testmonopProfit = [1,3,5]
+    patentLife = 100
+    testPiDecay = [0.01, 0.01, 0.01, 0.02, 0.02, 0.02, 0.03, 0.03, 0.03, 0.04, 0.04, 0.04, 0.05, 0.05, 0.05, 0.06, 0.06, 0.06, 0.07, 0.07, 0.07, 0.08, 0.08, 0.08, 0.09, 0.09, 0.09, 0.1, 0.1, 0.1]*6
+
+if simTest=='test4b':
+    numRuns = 180
+    resistMu = 4
+    testmonopProfit = [1,3,5]
+    patentLife = 100
+    testPiDecay = [0.01, 0.01, 0.01, 0.02, 0.02, 0.02, 0.03, 0.03, 0.03, 0.04, 0.04, 0.04, 0.05, 0.05, 0.05, 0.06, 0.06, 0.06, 0.07, 0.07, 0.07, 0.08, 0.08, 0.08, 0.09, 0.09, 0.09, 0.1, 0.1, 0.1]*6
+
+if simTest=='typical':
+    saveStepData = True
+    saveInnovData = True
+    doPatent = False # Whether the model uses patents
+    numRuns = 1 # Number of times the model is executed
+    numSteps = 5000 # Number of steps in each run
+    numCol = 50 # Number of columns in the initial lattice 
+    numRow = 100 # Number of initial rows in the initial lattice
+    numFirms = 20 # Number of firms to start
+    r = 2 # Search radius
+    resistMu = 2 # Mean of resistance for lognormal dist
+    resistSigma = 1.5 # Standard deviation of resistance for lognormal dist
+    baseRnD = 1 # Fixed portion of the firm's budget
+    monopProfit = 1 # Monopoly profits received for a patented innovation each step during its patent life and the initial profit for an innovation prior to decay
+    probPatent = 'N/A' # Probability a firm will create a patent for an innovation
+    patentRadius = 'N/A' # Radius a patent covers
+    piDecayRate = 0.5 # Rate at which profits from an innovation decay
+    patentLife = 'N/A'
+    
+innovSizes = {} # Innovation sizes held in a dictionary with attributes run, step, and innovation size
+innovSizeID = 0 # Counter for keys in the dictionary
 
 ## CLASS DEFINITIONS
 class Firm(object):
     """
-    Attributes: id (numeric), patents (list), position (x,y coordinate), innovations (list), rndBudget (profits from previous step, applied to rnd next step), patent profits (numeric total of profits recieved for its patents), totalProfits (numeric total of profits recieved)
+    Attributes: id (numeric), patents (list), position (x,y coordinate), innovations (list), rndBudget (profits from previous step, applied to rnd next step), patent profits (numeric total of profits received for its patents), totalProfits (numeric total of profits received)
     
     Holds firm objects which perform innovative search in the technology lattice. Firms are initially assigned positions on the lattice and then perform innovative search extracting and expending resources to move upward through the lattice. 
     """
@@ -107,7 +167,7 @@ class Firm(object):
     def getNeighborCols(self):
         """
         Parameters: (Firm object)
-        Returns list of neighboring columns within the search radius r around the firm's current position.
+        Returns list of neighbouring columns within the search radius r around the firm's current position.
         """
         col = 0
         nghbr = []
@@ -222,8 +282,8 @@ class Firm(object):
         Parameters: (Firm object, cell position)
         Takes given cell position, finds connected cells with a value of 1, flips those cells to value 2 and potentially patents that cell. Cycles through all connected cells with value 1 until no longer connections exist. Once all connections are exhausted innovation sizes are captured as the height difference for each affected column.  
         """
-        # Given a position that is changing from 1 to 2, this method analyzes neigboring positions to determine if they should also flip from 1 to 2
-        global innovSizeCounter
+        # Given a position that is changing from 1 to 2, this method analyzes neighbouring positions to determine if they should also flip from 1 to 2
+        global innovSizeID
         BPF = getBPF()
         cons = []
         updated = []
@@ -271,8 +331,8 @@ class Firm(object):
                     else:
                         innov.append(max([x for x in updated if x[1] == i])[0])
             for i in innov:
-                innovSizes[innovSizeCounter] = run, step, i ##BUG## Reading run/step right?
-                innovSizeCounter += 1
+                innovSizes[innovSizeID] = run, step, i ##BUG## Reading run/step right?
+                innovSizeID += 1
 
     def genPatent(self,rndPos):
         """
@@ -383,7 +443,7 @@ class Point(object):
             if val == 2:
                 if (self.position[0],self.position[1]-1) not in self.conTwos:
                     self.conTwos.append((self.position[0],self.position[1]-1))
-        # Special treatement for E on E boundary
+        # Special treatment for E on E boundary
         if self.position[1] == (numCol-1):
             if L[(self.position[0],0)].value == val:
                 if val == 1:
@@ -400,7 +460,7 @@ class Point(object):
                 if val == 2:
                     if (self.position[0],self.position[1]+1) not in self.conTwos:
                         self.conTwos.append((self.position[0],self.position[1]+1))
-        # Special treatement for S on S boundary
+        # Special treatment for S on S boundary
         if self.position[0] != 0:
             if L[(self.position[0]-1,self.position[1])].value == val:
                 if val == 1:
@@ -661,125 +721,113 @@ def cleanGifPlots(type):
             os.remove(path+i)
 
 ## SIMULATION 
-# Define the file time used in plotters and create the files used to save data
-filetime = time.strftime("%Y-%m-%d %H%M_%S")
-if doPatent:
-    dataFileName1 = filetime + "_PercolTSData_Pat.csv"
-    dataFileName2 = filetime + "_Innov_Size_Data_Pat.csv"
-    dataFileName3 = filetime + "_PercolRunData_Pat.csv"
-    paramFileName = filetime + '_PercolParams_Pat.txt'
-else:
-    dataFileName1 = filetime + "_PercolTSData_NoPat.csv"
-    dataFileName2 = filetime + "_Innov_Size_Data_NoPat.csv"
-    dataFileName3 = filetime + "_PercolRunData_NoPat.csv"
-    paramFileName = filetime + '_PercolParams_NoPat.txt'
 
-# Write run description to the parameter file
+# Initialize dataframes to store data 
 if saveParams:
-    writer = open(paramFileName, 'a')
-    writer.write(runDesc + '\n' + '\n')
-    
+    paramDFCols = ['numRuns', 'numSteps', 'numCol', 'numRow', 'numFirms', 'r', 'piDecayRate', 'monopProfit', 'baseRnD', 'resistMu', 'resistSigma', 'meanResist', 'maxResist', 'minResist', 'doPatent', 'probPatent', 'patentLife', 'patentRadius', 'randomSeed', 'simTest', 'runTime', 'endingSteps', 'endingNumInnov', 'endingMeanBPFHeight', 'endingMaxBPFHeight', 'endingStdProfit']
+    paramDF = pd.DataFrame(columns=paramDFCols)
+if saveRunData:
+    runDFCols = ['run', 'resistMu', 'resistSigma', 'monopProfit', 'doPatent', 'piDecayRate', 'patentLife', 'patentRadius', 'BPFChange', 'clusterIndex', 'meanBPF', 'maxBPF', 'steps', 'stdProfit', 'logCoef', 'perBPFPat', 'totalPatents']
+    runDF = pd.DataFrame(columns=runDFCols)
+if saveStepData:
+    stepDFCols = ['run', 'step', 'resistMu', 'resistSigma', 'doPatent', 'piDecayRate', 'patentLife', 'patentRadius', 'BPFChange', 'clusterIndex', 'meanBPF', 'maxBPF', 'stdProfit', 'numPats', 'perBPFPat', 'totalPatents']
+    stepDF = pd.DataFrame(columns=stepDFCols)
+if saveFirmStepData:
+    firmDFCols = ['run', 'step', 'firmID', 'totaProfits', 'patentProfits', 'height', 'numInnovs', 'numPats']
+    firmDF = pd.DataFrame(columns=firmDFCols)
+
+
 # Initialize the random number generator with the parameterized seed
 random.seed(randomSeed)
-
-# Define profit stream list
-profitStream = [monopProfit]
-while profitStream[-1] > 0.01:
-    profitStream.append(round(monopProfit * math.exp(-piDecayRate*len(profitStream)),3))
-print "profitStream", profitStream
-
-# Simulation tests, lists of parameter values to be used during specific simulation tests
-if doSigTest:
-    testResistSigma = [0.2, 0.2, 0.2, 0.4, 0.4, 0.4, 0.6, 0.6, 0.6, 0.8, 0.8, 0.8, 1.0, 1.0, 1.0, 1.2, 1.2, 1.2, 1.4, 1.4, 1.4, 1.6, 1.6, 1.6, 1.8, 1.8, 1.8, 2.0, 2.0, 2.0]
-if doDecayTest:
-    testPiDecay = [0.005, 0.005, 0.005, 0.01, 0.01, 0.01, 0.015, 0.015, 0.015, 0.02, 0.02, 0.02, 0.025, 0.025, 0.025, 0.03, 0.03, 0.03, 0.035, 0.035, 0.035, 0.04, 0.04, 0.04, 0.045, 0.045, 0.045, 0.05, 0.05, 0.05]*4
-    #testPiDecay = [0.01, 0.01, 0.01, 0.02, 0.02, 0.02, 0.03, 0.03, 0.03, 0.04, 0.04, 0.04, 0.05, 0.05, 0.05, 0.06, 0.06, 0.06, 0.07, 0.07, 0.07, 0.08, 0.08, 0.08, 0.09, 0.09, 0.09, 0.1, 0.1, 0.1]*4
-if doMonoPTest:
-    testPiDecay = [0.01, 0.01, 0.01, 0.02, 0.02, 0.02, 0.03, 0.03, 0.03, 0.04, 0.04, 0.04, 0.05, 0.05, 0.05, 0.06, 0.06, 0.06, 0.07, 0.07, 0.07, 0.08, 0.08, 0.08, 0.09, 0.09, 0.09, 0.1, 0.1, 0.1]*6
-if doMuTest:
-    testResistMu = [2, 2, 2, 2.2, 2.2, 2.2, 2.4, 2.4, 2.4, 2.6, 2.6, 2.6, 2.8, 2.8, 2.8, 3.0, 3.0, 3.0, 3.2, 3.2, 3.2, 3.4, 3.4, 3.4, 3.6, 3.6, 3.6, 3.8, 3.8, 3.8]*4
-
-innovSizes = {} # Innovation sizes held in a dictionary with attributes run, step, and innovation size
-innovSizeCounter = 0 # Counter for keys in the dictionary
 
 # Run the simulation numRuns times
 for run in range(numRuns):
     print "Run", run
     
     # Modify simulation parameters according to the test being performed, if any
-    if doSigTest:
-        resistSigma = testResistSigma[run]
-        print "resistSigma", resistSigma
-    if doDecayTest:
+    if simTest in ['test1a','test1b','test2a','test2b']:
         piDecayRate = testPiDecay[run]
         print "piDecayRate", piDecayRate
+        if run < 30:
+            patentLife = testpatentLife[0]
+        if run >= 30 and run < 60:
+            patentLife = testpatentLife[1]
+        if run >=60:
+            doPatent = False
+            
+        print "patentLife", patentLife
+        print "doPatent", doPatent
         # Define profit stream
         profitStream = [monopProfit]
         while profitStream[-1] > 0.01:
             profitStream.append(round(monopProfit * math.exp(-piDecayRate*len(profitStream)),3))
-        if run < 29:
-            patentLife = 5
-        if run > 29:
-            patentLife = 100
-        if run > 59:
-            patentLife = 200
-        if run > 89:
-            doPatent = False
-        print "patentLife", patentLife
-        print "doPatent", doPatent
-    if doMuTest:
+    
+    if simTest in ['test3a','test3b']:
         resistMu = testResistMu[run]
         print "resistMu", resistMu
-        if run < 29:
-            patentLife = 5
-        if run > 29:
-            patentLife = 100
-        if run > 59:
-            patentLife = 200
-        if run > 89:
+        if run < 30:
+            patentLife = testpatentLife[0]
+        if run >= 30 and run < 60:
+            patentLife = testpatentLife[1]
+        if run >=60:
             doPatent = False
         print "patentLife", patentLife
         print "doPatent", doPatent
-    if doMonoPTest:
-        piDecayRate = testPiDecay[run]
-        print "piDecayRate", piDecayRate
         # Define profit stream
         profitStream = [monopProfit]
         while profitStream[-1] > 0.01:
             profitStream.append(round(monopProfit * math.exp(-piDecayRate*len(profitStream)),3))
-        if run < 29:
-            monopProfit = 1
-        if run > 29:
-            monopProfit = 3
-        if run > 59:
-            monopProfit = 5
-        if run > 89:
-            monopProfit = 1
+
+    if simTest in ['test4a','test4b']:
+        piDecayRate = testPiDecay[run]
+        print "piDecayRate", piDecayRate
+        if run < 30:
+            monopProfit = testmonopProfit[0]
+        if run >= 30 and run < 60:
+            monopProfit = testmonopProfit[1]
+        if run >= 60 and run < 90:
+            monopProfit = testmonopProfit[2]
+        if run >= 90 and run < 120:
             doPatent = False
-        if run > 119:
-            monopProfit = 3
+            monopProfit = testmonopProfit[0]
+        if run >= 120 and run < 150:
             doPatent = False
-        if run > 149:
-            monopProfit = 5
+            monopProfit = testmonopProfit[1]
+        if run >= 150:
             doPatent = False
+            monopProfit = testmonopProfit[2]
         print "monopProfit", monopProfit
         print "doPatent", doPatent
-        
-    # Define lists to hold simulation data
+        # Define profit stream
+        profitStream = [monopProfit]
+        while profitStream[-1] > 0.01:
+            profitStream.append(round(monopProfit * math.exp(-piDecayRate*len(profitStream)),3))
+    if simTest == 'typical':
+        # Define profit stream
+        profitStream = [monopProfit]
+        while profitStream[-1] > 0.01:
+            profitStream.append(round(monopProfit * math.exp(-piDecayRate*len(profitStream)),3))
+
+    # Define lists to hold step data, to be aggregated in the runDF
     BPFChangeTS = []
     clusterIndexTS = []
     meanBPFTS = []
-    maxBPFTS = [0] # Starts with 0 so that while loop has a begining value to compare to maxHeight
+    maxBPFTS = [0] # Starts with 0 so that while loop has a beginning value to compare to maxHeight
     stdProfitTS = []
     if doPatent:
         numPatentsTS = []
         perBPFPatTS = []
         totalPatents = 0
         totalPatentsTS = []
+    else:   
+        numPatents = ['N/A']
+        perBPFPat = ['N/A']
+        totalPatents = 'N/A'
+        totalPatents = ['N/A']
     
     # Create lattice; must be named "L" since it is referenced as "L" throughout the methods
     L = genLattice()
-    
+
     # Capture statistics about initial resistance values for the initial lattice, written to parameter file
     resistValues = []
     for i, x in np.ndenumerate(L):
@@ -787,7 +835,7 @@ for run in range(numRuns):
     maxResist = max(resistValues)
     meanResist = np.mean(resistValues)
     minResist = min(resistValues)
-        
+            
     # Create firms
     firms = []
     for id in range(numFirms):
@@ -807,30 +855,8 @@ for run in range(numRuns):
         L[i].value = 2
         L[i].resistance = 0
     
-    # Create the firm data file for each step for the run
-    if saveFirmDataFiles:
-        headers = []
-        headers.append('steps')
-        for frm in range(numFirms):
-            headers.append('firm{0}totalProfits'.format(frm))
-            headers.append('firm{0}patentProfits'.format(frm))
-            headers.append('firm{0}height'.format(frm))
-            headers.append('firm{0}numInnovs'.format(frm))
-            headers.append('firm{0}numPats'.format(frm))
-        if doPatent:
-            firmFileName = filetime + "_Firm_Data_Run{0}_Pat.csv".format(run)
-        else:
-            firmFileName = filetime + "_Firm_Data_Run{0}_NoPat.csv".format(run)
-        inputFile = open(firmFileName, 'wb')
-        writer = csv.writer(inputFile, lineterminator='\n')
-        writer.writerow(headers)
-        inputFile.close()
-    
-    # Start step counter
-    step = -1
     # Run the simulation steps
-    while maxBPFTS[-1] < maxHeight:
-        step += 1
+    for step in range(numSteps):
         # Print info to console while model is running
         if step%(numSteps/10)==0:
             print "Step:", step
@@ -855,15 +881,13 @@ for run in range(numRuns):
         random.shuffle(firms)
        
         for i in range(len(firms)):
-            
             # Set active firm
             firm = firms[i]
             
             # Firm chooses new position (potentially the same position)
-            if random.random() < probMove:
-                newPosition = firm.getMove()
-                if newPosition:
-                    firm.position = newPosition
+            newPosition = firm.getMove()
+            if newPosition:
+                firm.position = newPosition
         
             # Firm selects position to perform R&D on
             # With patents there is a chance that there are no eligible positions near the firm to perform R&D, in which case rndPos is set to zero and the firm does not perform R&D that step
@@ -935,6 +959,7 @@ for run in range(numRuns):
             # If it is a new position on BPF starting at row > zero append row + 1
             else:
                 BPFDiff.append(i[0]+1)
+        
         # Append time series lists
         BPFChangeTS.append(sum(BPFDiff))
         clusterIndexTS.append(getCluster())
@@ -945,37 +970,28 @@ for run in range(numRuns):
             numPatentsTS.append(sum([len(x.patents) for x in firms]))
             perBPFPatTS.append(getPerBPFPat())
             totalPatentsTS.append(totalPatents)
-
-        # Write out firm level data for each step 
-        if saveFirmDataFiles:
-            # Write subsequent runs to the first file 
-            inputFile = open(firmFileName, 'rb')
-            outputFile = open("outputFile.csv", 'wb')
-            reader = csv.reader(inputFile, lineterminator='\n')
-            writer = csv.writer(outputFile, lineterminator='\n')
-            # Write in all existing rows
-            for row in range(step+1):
-                newRow = reader.next()
-                writer.writerow(newRow)
-            # Write in new row
-            newRow = []
-            newRow.append(step)
-            for frms in range(numFirms): 
-                # Number of columns = number of firms * number of types of data
-                firmWrite = [x for x in firms if x.id == frms][0]
-                newRow.append(firmWrite.totalProfits) 
-                newRow.append(firmWrite.patentProfits)
-                newRow.append(firmWrite.position[0])
-                newRow.append(len(firmWrite.innovations))
-                if firmWrite.patents:
-                    newRow.append(len([x for x in firmWrite.patents if L[tuple(x)].patent == True]))
+        
+        # Calculate step data and append to step DF
+        if saveStepData:
+            if doPatent:
+                row = pd.Series([run, step, resistMu, resistSigma, doPatent, piDecayRate, patentLife, patentRadius, BPFChangeTS[-1], clusterIndexTS[-1], meanBPFTS[-1], maxBPFTS[-1], stdProfitTS[-1], numPatentsTS[-1], perBPFPatTS[-1], totalPatentsTS[-1]], index=stepDFCols)
+                stepDF = stepDF.append(row, ignore_index=True)  
+            else:
+                row = pd.Series([run, step, resistMu, resistSigma, doPatent, piDecayRate, patentLife, patentRadius, BPFChangeTS[-1], clusterIndexTS[-1], meanBPFTS[-1], maxBPFTS[-1], stdProfitTS[-1], 'N/A', 'N/A', 'N/A'], index=stepDFCols)
+                stepDF = stepDF.append(row, ignore_index=True)  
+        # Calculate firm data and append firm DF
+        if saveFirmStepData:
+            for frms in range(numFirms):
+                if doPatent:
+                    numPats = len(frm.patents)
                 else:
-                    newRow.append(0)
-            writer.writerow(newRow)
-            inputFile.close()
-            outputFile.close()
-            os.remove(path+firmFileName)
-            os.rename("outputFile.csv", firmFileName)
+                    numPats = 'N/A'
+                row = pd.Series([run, step, frm, frm.totalProfits, frm.patentProfits, frm.position, len(frm.innovations), numPats], index=firmDFCols)
+                firmDF = firmDF.append(row, ignore_index=True)
+        
+        ### End of STEP ###
+    
+    ### End of RUN ###
     
     # Calculate log-log coefficient of innovation sizes for run
     # Filter the dictionary for the innovSizes for the run
@@ -1015,119 +1031,39 @@ for run in range(numRuns):
         cleanGifPlots("VandR")
         genGifs("Pat",run)
         cleanGifPlots("Pat")
-        
-    # Store time series data for each run
-    if saveTSDataFiles:
-        # If its the first run create the initial headers and rows
-        if run == 0:
-            # Write initial run to the first file
-            headers = ['run', 'step', 'resistMu', 'resistSigma', 'doPatent', 'piDecayRate', 'patentLife', 'patentRadius', 'BPFChange', 'clusterIndex', 'meanBPF', 'maxBPF', 'stdProfit', 'perBPFPat', 'totalPatents']
-            inputFile = open(dataFileName1, 'wb')
-            steps = list(range(step))
-            writer = csv.writer(inputFile, lineterminator='\n')
-            writer.writerow(headers)
-            if doPatent:
-                for i in range(len(steps)):
-                    writer.writerow([run, i, resistMu, resistSigma, doPatent, piDecayRate, patentLife, patentRadius, BPFChangeTS[i], clusterIndexTS[i], meanBPFTS[i], maxBPFTS[i], stdProfitTS[i], perBPFPatTS[i], totalPatentsTS[i]])
-            else:
-                for i in range(len(steps)):
-                    writer.writerow([run, i, resistMu, resistSigma, doPatent, piDecayRate, patentLife, patentRadius, BPFChangeTS[i], clusterIndexTS[i], meanBPFTS[i], maxBPFTS[i], stdProfitTS[i]])
-            inputFile.close()
-        else:
-            # Write subsequent runs to the first file 
-            inputFile = open(dataFileName1, 'rb')
-            outputFile = open("outputFile.csv", 'wb')
-            reader = csv.reader(inputFile, lineterminator='\n')
-            writer = csv.writer(outputFile, lineterminator='\n')
-            row_count = sum(1 for row in csv.reader( open(dataFileName1)))
-            for i in range(row_count):
-                row = reader.next()
-                writer.writerow(row)
-            if doPatent:
-                for i in range(step):
-                    writer.writerow([run, i, resistMu, resistSigma, doPatent, piDecayRate, patentLife, patentRadius, BPFChangeTS[i], clusterIndexTS[i], meanBPFTS[i], maxBPFTS[i], stdProfitTS[i], perBPFPatTS[i], totalPatentsTS[i]])
-            else:
-                for i in range(step):
-                    writer.writerow([run, i, resistMu, resistSigma, doPatent, piDecayRate, patentLife, patentRadius, BPFChangeTS[i], clusterIndexTS[i], meanBPFTS[i], maxBPFTS[i], stdProfitTS[i]])
-            inputFile.close()
-            outputFile.close()
-            os.remove(path+dataFileName1)
-            os.rename("outputFile.csv", dataFileName1)
-                 
+    
     # Store run data for each run
-    if saveRunDataFiles:
-        # If its the first run create the initial headers and rows
-        if run == 0:
-            # Write initial run to the first file
-            headers = ['run', 'resistMu', 'resistSigma', 'monopProfit', 'doPatent', 'piDecayRate', 'patentLife', 'patentRadius', 'BPFChange', 'clusterIndex', 'meanBPF', 'maxBPF', 'steps', 'stdProfit', 'logCoef', 'perBPFPat', 'totalPatents']
-            inputFile = open(dataFileName3, 'wb')
-            writer = csv.writer(inputFile, lineterminator='\n')
-            writer.writerow(headers)
-            if doPatent:
-                writer.writerow([run, resistMu, resistSigma, monopProfit, doPatent, piDecayRate, patentLife, patentRadius, np.mean(BPFChangeTS), np.mean(clusterIndexTS), meanBPFTS[-1], maxBPFTS[-1], step, np.mean(stdProfitTS), logCoef, np.mean(perBPFPatTS), totalPatents])
-            else:
-                writer.writerow([run, resistMu, resistSigma, monopProfit, doPatent, piDecayRate, patentLife, patentRadius, np.mean(BPFChangeTS), np.mean(clusterIndexTS), meanBPFTS[-1], maxBPFTS[-1], step, np.mean(stdProfitTS), logCoef])
-            inputFile.close()
+    if saveRunData:
+        if doPatent:
+            row = pd.Series([run, resistMu, resistSigma, monopProfit, doPatent, piDecayRate, patentLife, patentRadius, np.mean(BPFChangeTS), np.mean(clusterIndexTS), meanBPFTS[-1], maxBPFTS[-1], step, np.mean(stdProfitTS), logCoef, np.mean(perBPFPatTS), totalPatents], index=runDFCols)
+            runDF = runDF.append(row, ignore_index=True)
         else:
-            # Write subsequent runs to the first file 
-            inputFile = open(dataFileName3, 'rb')
-            outputFile = open("outputFile.csv", 'wb')
-            reader = csv.reader(inputFile, lineterminator='\n')
-            writer = csv.writer(outputFile, lineterminator='\n')
-            for i in range(run+1):
-                row = reader.next()
-                writer.writerow(row)
-            if doPatent:
-                writer.writerow([run, resistMu, resistSigma, monopProfit, doPatent, piDecayRate, patentLife, patentRadius, np.mean(BPFChangeTS), np.mean(clusterIndexTS), meanBPFTS[-1], maxBPFTS[-1], step, np.mean(stdProfitTS), logCoef, np.mean(perBPFPatTS), totalPatents])
-            else:
-                writer.writerow([run, resistMu, resistSigma, monopProfit, doPatent, piDecayRate, patentLife, patentRadius, np.mean(BPFChangeTS), np.mean(clusterIndexTS), meanBPFTS[-1], maxBPFTS[-1], step, np.mean(stdProfitTS), logCoef])
-            inputFile.close()
-            outputFile.close()
-            os.remove(path+dataFileName3)
-            os.rename("outputFile.csv", dataFileName3)
-
+            row = pd.Series([run, resistMu, resistSigma, monopProfit, doPatent, piDecayRate, patentLife, patentRadius, np.mean(BPFChangeTS), np.mean(clusterIndexTS), meanBPFTS[-1], maxBPFTS[-1], step, np.mean(stdProfitTS), logCoef, 'N/A', 'N/A'], index=runDFCols)
+            runDF = runDF.append(row, ignore_index=True)
     # Create a file to save the parameters used, subsequent runs appended to the same text file
     if saveParams:
-        writer = open(paramFileName, 'a')
-        writer.write('Whether patents are used, doPatent' + '\t' + str(doPatent) + '\n')
-        writer.write('Probablity a firm will generate a patent for an innovation, probPatent' + '\t' + str(probPatent) + '\n')
-        writer.write('How many steps patents last, patentLife' + '\t' + str(patentLife) + '\n')
-        writer.write('The radius of patents, patentRadius' + '\t' + str(patentRadius) + '\n')
-        writer.write('Random seed' + '\t' + str(randomSeed) + '\n')
-        writer.write('Whether the test of log normal std dev was run, doSigTest' + '\t' + str(doSigTest) + '\n')
-        writer.write('Whether the test of profit decay was run, doDecayTest' + '\t' + str(doDecayTest) + '\n')
-        writer.write('Number of times the model is run, numRuns' + '\t' + str(numRuns) + '\n')
-        writer.write('Maximum height allowed for each run, maxHeight' + '\t' + str(maxHeight) + '\n')
-        writer.write('Number of columns, numCol' + '\t' + str(numCol) + '\n')
-        writer.write('Number of initial rows, numRow' + '\t' + str(numRow) + '\n')
-        writer.write('Mean of lognormal distribution of resistance, resistMu' + '\t' + str(resistMu) + '\n')
-        writer.write('Std Dev of lognormal distribution of resistance, resistSigma' + '\t' + str(resistSigma) + '\n')
-        writer.write('Mean, min, and max of initial resistance values' + '\t' + str(round(meanResist,2)) + ', ' + str(round(minResist,2)) + ', ' + str(round(maxResist,2)) + '\n')
-        writer.write('Number of firms, numFirms' + '\t' + str(numFirms) + '\n')
-        writer.write('Local search radius, r' + '\t' + str(r) + '\n')
-        writer.write('Exponential rate of decay for innovation profits, piDecayRate' + '\t' + str(piDecayRate) + '\n')
-        writer.write('Monopoly profit for patents and initial pre-decay profit, monopProfit' + '\t' + str(monopProfit) + '\n')
-        writer.write('Base RnD strength, baseRnD' + '\t' + str(baseRnD) + '\n' + '\n')
-        writer.write('Results'+ '\n')
-        writer.write('Number of innovations, len(innovSizesRun)' + '\t' + str(len(innovSizesRun)) + '\n')
-        writer.write('Ending Mean BPF Height, meanBPFTS[-1]' + '\t' + str(meanBPFTS[-1]) + '\n')
-        writer.write('Ending Max BPF Height, maxBPFTS[-1]' + '\t' + str(maxBPFTS[-1]) + '\n')
-        writer.write('Number of steps it took to reach maxHeight, step' + '\t' + str(step) + '\n')
-        writer.write('Ending Std of Profit, stdProfitTS[-1]' + '\t' + str(stdProfitTS[-1]) + '\n')
-        writer.write('Run Time, minutes lapsed' + '\t' + str((time.clock() - t0)/60) + '\n' + '\n')
-        writer.close()
-
-# Store innovation sizes
-if saveInnovDataFiles:
-    # Write initial run to the second file 
-    headers = ['id', 'run', 'step', 'innovSize']
-    inputFile = open(dataFileName2, 'wb')
-    writer = csv.writer(inputFile, lineterminator='\n')
-    writer.writerow(headers)
-    for i in range(len(innovSizes)):
-        writer.writerow([i, innovSizes[i][0], innovSizes[i][1], innovSizes[i][2]])
-    inputFile.close()
-
+        runTime = (time.clock() - t0)/60
+        row = pd.Series([numRuns, numSteps, numCol, numRow, numFirms, r, piDecayRate, monopProfit, baseRnD, resistMu, resistSigma, meanResist, maxResist, minResist, doPatent, probPatent, patentLife, patentRadius, randomSeed, simTest, runTime, step, len(innovSizesRun), meanBPFTS[-1], maxBPFTS[-1], stdProfitTS[-1]], index=paramDFCols)
+        paramDF = paramDF.append(row, ignore_index=True)
+        
+# Write data to CSVs
+if saveFirmStepData:
+    firmDFPath = './' + filetime+ '_'+simTest+ '_' + 'percol_firmdata.csv'
+    firmDF.to_csv(firmDFPath)
+if saveStepData:
+    stepDFPath = './' + filetime+ '_'+simTest+ '_' + 'percol_stepdata.csv'
+    stepDF.to_csv(stepDFPath)
+if saveRunData:
+    runDFPath = './' + filetime+'_'+simTest+ '_' + 'percol_rundata.csv'
+    runDF.to_csv(runDFPath)
+if saveParams:
+    paramDFPath = './' + filetime +'_'+simTest+ '_' + 'percol_params.csv'
+    paramDF.to_csv(paramDFPath)
+if saveInnovData:
+    innovDF = pd.DataFrame.from_dict(innovSizes,orient='index')
+    innovDF.columns = ['run','step','innovSize']
+    innovDFPath = './' + filetime +'_'+simTest+ '_' + 'percol_innovdata.csv'
+    innovDF.to_csv(innovDFPath)
 
 t = time.clock() - t0
 print "Minutes Lapsed:", (t/60)
