@@ -1,11 +1,8 @@
 #Agent based percolation model of innovation
 
 *Nathan Goldschlag*
-
 *June 17, 2013*
-
 *Version 1.0*
-
 *Written in Python 2.7*
 
 
