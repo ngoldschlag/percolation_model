@@ -1,4 +1,4 @@
-#Agent based percolation model of innovation
+##Agent based percolation model of innovation
 
 *Nathan Goldschlag*
 
