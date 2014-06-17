@@ -1,12 +1,12 @@
-<h1>Percolation Model</h1>
+Percolation Model/n
 =================
-Agent based percolation model of innovation
+Agent based percolation model of innovation/n
 Nathan Goldschlag
 June 17, 2013
 Version 1.0
 Written in Python 2.7
 
-<p>This python file executes an agent based percolation model that extends the percolation model in Silverberg and Verspagen 2007. The model incorporates patents which can: 1) provide additional resources to innovators to invest in R&D and 2) block other firms from exploring the technology space.</p>
+This python file executes an agent based percolation model that extends the percolation model in Silverberg and Verspagen 2007. The model incorporates patents which can: 1) provide additional resources to innovators to invest in R&D and 2) block other firms from exploring the technology space.
 
 To execute the model submit via console passing the desired simulation test as a parameter, e.g. "python test1a", below is a list of valid simulation test names.
 ['test1a', 'test1b', 'test2a', 'test2b', 'test3a', 'test3b', 'test4a', 'test4b', 'typical']
