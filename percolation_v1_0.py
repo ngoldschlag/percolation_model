@@ -6,13 +6,13 @@ June 17, 2013
 Version 1.0
 Written in Python 2.7
 
-This python file executes an agent based percolation model that extends the percolation model in Silverberg and Verspagen 2007. The model incorporates patents which can: 1) provide additional resources to innovators to invest in R&D and 2) block other firms from exploring the technology space.
+This python file executes an agent based percolation model that extends the percolation model 
+in Silverberg and Verspagen 2007. The model incorporates patents which can: 1) provide additional 
+resources to innovators to invest in R&D and 2) block other firms from exploring the technology space.
 
-To execute the model submit via console passing the desired simulation test as a parameter, e.g. "python test1a", below is a list of valid simulation test names.
+To execute the model submit via console passing the desired simulation test as a parameter, 
+e.g. "python percolation_v1_0.py test1a", below is a list of valid simulation test names.
 ['test1a', 'test1b', 'test2a', 'test2b', 'test3a', 'test3b', 'test4a', 'test4b', 'typical']
-
-ABSTRACT: A model of the innovation process is proposed as a method of understanding the effects of patents in both promoting and stifling innovative search. Traditional static economic models of the innovation process and patenting struggle to capture the interdependence of different types of technologies and the path dependence of innovative search. This research addresses this gap by proposing an agent-based computational model that directly incorporates path dependence, localized search, uncertainty, and the interdependence of technological innovations. The model is capable of replicating several empirical observations including the skewed distribution of innovation value as well as the temporal clustering of radical innovations.  Simulation results are used to investigate how patent breadth, patent duration, and monopoly power affect the performance of innovative search. The results suggest that patents can improve innovative performance when firms have less monopoly power and the technology space is difficult to navigate. However, when the technology space is less difficult to navigate innovative performance significantly improves without patents. Likewise, when the technology space is simple increased patent strength, breadth, and duration, stifle innovative search. 
-
 """
 
 ## IMPORT LIBRARIES
@@ -23,10 +23,6 @@ import math
 import matplotlib.pyplot as plt
 import pylab as py 
 import pandas as pd
-#import scipy as sp
-#import gc
-#from images2gif import writeGif # Used for gifs
-#from PIL import Image # Used for gifs
 
 t0 = time.clock()
 
@@ -36,14 +32,10 @@ print "Simulation Test Entered", simTest
 numCol = 50 # Number of columns in the initial lattice 
 numRow = 100 # Number of initial rows in the initial lattice
 numFirms = 20 # Number of firms to start
-path = "C:\\Users\\ngold\\Documents\\Python Library\\" # path that plots will be saved to, used to clean up gif plots
 filetime = time.strftime("%Y-%m-%d %H%M_%S")
 
 randomSeed = 123456789 # Seed used to initialize the random number generator
 
-savePlots = False # Whether plots are saved after created
-doGifs = False # Whether to save snapshots used to create percolation gifs
-gifFreq = 20 # Frequency of snapshots for gifs
 saveParams = True # Whether a text file is saved with the parameters from the run
 saveStepData = False # Whether a file is created to hold time series data
 saveRunData = True # Whether a file is created to hold run data
@@ -608,118 +600,6 @@ def getPerBPFPat():
     else:
         return 0
 
-## PLOTTERS
-def plotValue(step):
-   # Plots snapshot of value for gif
-    K = np.zeros((len(L),numCol))
-    for i, x in np.ndenumerate(L):
-        K[i] = L[i].value
-    firmPositions = map(lambda Firm: Firm.getPosition(), firms)
-    for i in firmPositions:
-        K[i] = 1.5
-    py.figure(figsize=(8,8))
-    py.imshow(K, origin='lower', interpolation='nearest')
-    yticks = range(0,len(L),(len(L)/15))
-    xticks = range(0,len(L[0]),(len(L[0])/15))
-    py.xticks(xticks)
-    py.yticks(yticks)
-    py.grid(color='k',linewidth=2)
-    py.title("Value Plot")
-    fileName = "plotValue_{0}.png".format(float(step)/float(numSteps))
-    plt.savefig(fileName)
-
-def plotBPF(step):
-    # Plots snapshot of BPF for gif
-    K = np.zeros((len(L),numCol))
-    BPF = getBPF()
-    for i, x in np.ndenumerate(K):
-        if [x for x in BPF if x[1]==i[1]]:
-            if [x for x in BPF if x[1]==i[1]][0][0] >= i[0]:
-                K[i] = 2
-    py.figure(figsize=(8,8))
-    py.imshow(K, origin='lower', interpolation='nearest')
-    yticks = range(0,len(L),(len(L)/15))
-    xticks = range(0,len(L[0]),(len(L[0])/15))
-    py.xticks(xticks)
-    py.yticks(yticks)
-    py.grid(color='k',linewidth=2)
-    py.title("BPF Plot")
-    fileName = "plotBPF_{0}.png".format(float(step)/float(numSteps))
-    plt.savefig(fileName)
-
-def plotValueAndResist(step):
-    # Plots snapshot of value and resistance for gif
-    K = np.zeros((len(L),numCol))
-    for i, x in np.ndenumerate(L):
-        K[i] = L[i].value
-    firmPositions = map(lambda Firm: Firm.getPosition(), firms)
-    for i in firmPositions:
-        K[i] = 1.5
-    py.figure(figsize=(30,30))
-    py.subplot(121)
-    py.imshow(K, origin='lower', interpolation='nearest')
-    py.colorbar()
-    yticks = range(0,len(L),(len(L)/15))
-    xticks = range(0,len(L[0]),(len(L[0])/15))
-    py.xticks(xticks)   
-    py.yticks(yticks)
-    py.grid(color='k',linewidth=2)
-    py.title("Value Plot")
-
-    K = np.zeros((len(L),numCol))
-    for i, x in np.ndenumerate(L):
-        K[i] = L[i].resistance
-    py.subplot(122)
-    py.imshow(K, origin='lower', interpolation='nearest')
-    py.colorbar()
-    yticks = range(0,len(L),(len(L)/15))
-    xticks = range(0,len(L[0]),(len(L[0])/15))
-    py.xticks(xticks)
-    py.yticks(yticks)
-    py.grid(color='k',linewidth=2)
-    py.title("Resistance Plot")
-    fileName = "plotVandR_{0}.png".format(float(step)/float(numSteps))
-    plt.savefig(fileName)
-
-def plotPats(step):
-    # Plots snapshot of value and patents for gif
-    K = np.zeros((len(L),numCol))
-    for i, x in np.ndenumerate(L):
-        K[i] = L[i].value
-        if L[i].patent:
-            K[i] = 0.5
-    firmPositions = map(lambda Firm: Firm.getPosition(), firms)
-    for i in firmPositions:
-        K[i] = 1.5
-    py.figure(figsize=(8,8))
-    py.imshow(K, origin='lower', interpolation='nearest')
-    yticks = range(0,len(L),(len(L)/15))
-    xticks = range(0,len(L[0]),(len(L[0])/15))
-    py.xticks(xticks)
-    py.yticks(yticks)
-    py.grid(color='k',linewidth=2)
-    py.title("Value and Patents Plot")
-    fileName = "plotPat_{0}.png".format(float(step)/float(numSteps))
-    plt.savefig(fileName)
-
-def genGifs(type,run):
-    # Creates gifs from images saved via plotValue(), plotBPF(), and plotValueAndResist(); images2gif.py file must be available in the default directory
-    file_names = sorted( (fn for fn in os.listdir('.') if fn.startswith("plot{0}".format(type))))    
-    images = [Image.open(fn) for fn in file_names]    
-    size = (500,500)
-    for im in images:
-        im.thumbnail(size, Image.ANTIALIAS)    
-    print writeGif.__doc__    
-    filename = "{0}_Run{1}_Percol_{2}_Gif.GIF".format(filetime,run,type)
-    writeGif(filename, images, duration=0.5)
-
-def cleanGifPlots(type):
-    # Deletes the files created via plotValue(), plotBPF(), and plotValueAndResist()
-    file_names = sorted( (fn for fn in os.listdir('.') if fn.startswith("plot{0}".format(type))))    
-    for i in file_names:
-        if os.path.isfile(path+i):
-            os.remove(path+i)
-
 ## SIMULATION 
 
 # Initialize dataframes to store data 
@@ -866,14 +746,7 @@ for run in range(numRuns):
         # Remove that first element from when maxBPFTS was initialized
         if step==0:
             del maxBPFTS[0]
-        # Capture plots for gifs
-        if doGifs:
-            if step%(numSteps/gifFreq)==0:
-                plotValue(step)
-                plotBPF(step)
-                plotValueAndResist(step)
-                plotPats(step)
-        
+
         # Create snapshot of BPF for comparison after round of R&D
         preBPF = getBPF()
         
@@ -1020,17 +893,6 @@ for run in range(numRuns):
         logCoef = round(polynomial[1],2)
     else:
         logCoef = None
-    
-    # Plot gifs for the run
-    if doGifs:
-        genGifs("Value",run)
-        cleanGifPlots("Value")
-        genGifs("BPF",run)
-        cleanGifPlots("BPF")
-        genGifs("VandR",run)
-        cleanGifPlots("VandR")
-        genGifs("Pat",run)
-        cleanGifPlots("Pat")
     
     # Store run data for each run
     if saveRunData:
