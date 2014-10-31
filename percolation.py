@@ -10,9 +10,9 @@ This python file executes an agent based percolation model that extends the perc
 in Silverberg and Verspagen 2007. The model incorporates patents which can: 1) provide additional 
 resources to innovators to invest in R&D and 2) block other firms from exploring the technology space.
 
-To execute the model submit via console passing the desired simulation test as a parameter, 
-e.g. "python percolation_v1_0.py test1a", below is a list of valid simulation test names.
-['test1a', 'test1b', 'test2a', 'test2b', 'test3a', 'test3b', 'test4a', 'test4b', 'typical']
+To execute the model modify the tests to run in main()
+Below is a list of valid simulation test names.
+['test1a', 'test1b', 'test2a', 'test2b', 'test3a', 'test3b', 'test4a', 'test4b', 'typical','microsim']
 """
 
 ## IMPORT LIBRARIES
