@@ -2,17 +2,15 @@
 """
 Agent based percolation model of innovation
 Nathan Goldschlag
-October 19, 2014
-Version 1.1
+January 15, 2015
+Version 1.2
 Written in Python 2.7
 
 This python file executes an agent based percolation model that extends the percolation model 
 in Silverberg and Verspagen 2007. The model incorporates patents which can: 1) provide additional 
 resources to innovators to invest in R&D and 2) block other firms from exploring the technology space.
 
-To execute the model modify the tests to run in main()
-Below is a list of valid simulation test names.
-['test1a', 'test1b', 'test2a', 'test2b', 'test3a', 'test3b', 'test4a', 'test4b', 'typical','microsim']
+To execute the model modify the list of simulation tests to run in main().
 """
 
 ## IMPORT LIBRARIES
@@ -518,6 +516,9 @@ class Simulation(object):
         self.saveInnovData = False # Whether a file is created to hold innovation sizes
         self.saveFirmStepData = False # Whether a csv is written with firm level data from the model
         self.saveDataPath = 'C:/Users/ngold/Documents/python_library/work_percolation/'
+        if simTest=='typical':
+            self.saveStepData = True
+            self.saveInnovData = True
     
      ## FUNCTION DEFINITIONS
 
@@ -944,7 +945,7 @@ def main():
     """
     validTests = ['test1a', 'test1b', 'test2a', 'test2b', 'test3a', 'test3b', 'test4a', 'test4b', 'typical', 'microSim']
     """
-    testsToRun = ['microSim','microSim','microSim','microSim','microSim']
+    testsToRun = ['typical']
     print "Simulation Tests to Run", testsToRun
     
     ## Run simulations
