@@ -29,21 +29,23 @@ gen dopatdecay = dopatent*pidecayrate
 replace patentlife = . if dopatent == 0
 replace patentradius = . if dopatent == 0
 gen lmaxbpf = log(maxbpf)
+gen lmeanbpf = log(meanbpf)
+gen lnuminnov = log(numinnov)
 
 ** regressions
-reg maxbpf dopatent resistmu pidecayrate clusterindex, vce(robust)
-outreg2 using $workDir\percolregs.doc, replace ctitle(maxBPF)
-reg meanbpf dopatent resistmu pidecayrate clusterindex, vce(robust)
-outreg2 using $workDir\percolregs.doc, append ctitle(meanBPF)
-reg numinnov dopatent resistmu pidecayrate clusterindex, vce(robust)
-outreg2 using $workDir\percolregs.doc, append ctitle(numInnov)
+reg lmaxbpf dopatent resistmu pidecayrate clusterindex, vce(robust)
+outreg2 using $workDir\percolregs.doc, replace ctitle(Log maxBPF)
+reg lmeanbpf dopatent resistmu pidecayrate clusterindex, vce(robust)
+outreg2 using $workDir\percolregs.doc, append ctitle(Log meanBPF)
+reg lnuminnov dopatent resistmu pidecayrate clusterindex, vce(robust)
+outreg2 using $workDir\percolregs.doc, append ctitle(Log numInnov)
 
-reg maxbpf resistmu pidecayrate patentlife patentradius clusterindex if dopatent==1, vce(robust)
-outreg2 using $workDir\percolregs.doc, append ctitle(maxBPF With Patents)
-reg meanbpf resistmu pidecayrate patentlife patentradius clusterindex if dopatent==1, vce(robust)
-outreg2 using $workDir\percolregs.doc, append ctitle(meanBPF With Patents)
-reg numinnov resistmu pidecayrate patentlife patentradius clusterindex if dopatent==1, vce(robust)
-outreg2 using $workDir\percolregs.doc, append ctitle(numInnov With Patents)
+reg lmaxbpf resistmu pidecayrate patentlife patentradius clusterindex if dopatent==1, vce(robust)
+outreg2 using $workDir\percolregs.doc, append ctitle(Log maxBPF With Patents)
+reg lmeanbpf resistmu pidecayrate patentlife patentradius clusterindex if dopatent==1, vce(robust)
+outreg2 using $workDir\percolregs.doc, append ctitle(Log meanBPF With Patents)
+reg lnuminnov resistmu pidecayrate patentlife patentradius clusterindex if dopatent==1, vce(robust)
+outreg2 using $workDir\percolregs.doc, append ctitle(Log numInnov With Patents)
 
 
 ** diff in means of logs, lognormal
